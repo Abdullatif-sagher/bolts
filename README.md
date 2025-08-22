@@ -20,6 +20,19 @@
 -   **Image Preprocessing:** Automatically applies a grayscale filter to input images to match the model's training conditions.
 
 ---
+### 📥 Download the Model
+
+To run the project, you need to download and extract the pre-trained model.
+
+1. 🔗 [**Download model.zip**](https://drive.google.com/file/d/1V5XaOJlhDxmUWe3MjGwjSmbGCvIOWBSg/view?usp=drive_link)  
+2. 📂 Extract the contents of `model.zip` into the **project root directory**, next to these folders:  
+   - 📄 `config`
+   - 📄 `detector`
+   - 📄 `main`
+   - 📄 `gui`
+
+After extraction, your project structure should look like this:
+
 
 ### 📁 Project Structure
 
@@ -27,11 +40,11 @@
 /bolts/
 |
 ├── 📁model          
-├── main.py           # Main entry point to launch the application
-├── gui.py            # Contains the Gradio UI code
-├── detector.py       # The AI engine for model management and inference
-├── config.py         # All project settings and model paths
-└── requirements.txt  # Python dependencies for easy setup
+├── 📄main.py           # Main entry point to launch the application
+├── 📄gui.py            # Contains the Gradio UI code
+├── 📄detector.py       # The AI engine for model management and inference
+├── 📄config.py         # All project settings and model paths
+└── 📄requirements.txt  # Python dependencies for easy setup
 ```
 
 ---
