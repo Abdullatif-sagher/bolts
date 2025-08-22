@@ -26,6 +26,7 @@
 ```
 /bolts/
 |
+├── 📁model          
 ├── main.py           # Main entry point to launch the application
 ├── gui.py            # Contains the Gradio UI code
 ├── detector.py       # The AI engine for model management and inference
