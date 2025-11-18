@@ -20,6 +20,20 @@
 -   **Image Preprocessing:** Automatically applies a grayscale filter to input images to match the model's training conditions.
 
 ---
+### ✨ Core New Features
+
+-   **Batch Processing:** Analyze **multiple images** in a single run for all selected models.
+-   **Metrics Dashboard:** Ability to upload **Label files (.txt)** to calculate crucial performance metrics like **True Positives (TP)**, **False Positives (FP)**, **Precision**, **Recall**, and **mAP** for model accuracy evaluation.
+-   **Smart Tightness Logic:** Apply a strict geometric logic (Smart OR Logic) for **TIGHT** or **LOOSE** classification while maintaining tolerance for common occlusion or training issues, and correcting for angle-based errors (cheating).
+-   **Detailed Report:** Comprehensive table output including image name, **processing time per model**, and Confusion Matrix status (TP/FP/FN).
+-   **Enhanced Visual Guidance:**
+    *   Color-code **TIGHT** (Green) and **LOOSE** (Red) in both the table and on the images.
+    *   Draw **Keypoint Names** ($P1, H1$...) on the output images for clearer debugging.
+    *   Selectively draw only the keypoints/groups that passed the tightening logic check, hiding noisy or failing data.
+-   **Guaranteed Download:** Download all processed results as a **ZIP file** to ensure correct saving of `.jpg` images.
+- 
+---
+
 ### 📥 Download the Model
 
 To run the project, you need to download and extract the pre-trained model.
