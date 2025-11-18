@@ -38,8 +38,9 @@
 
 To run the project, you need to download and extract the pre-trained model.
 
-1. 🔗 [**Download model.zip**](https://drive.google.com/file/d/1V5XaOJlhDxmUWe3MjGwjSmbGCvIOWBSg/view?usp=drive_link)  
-2. 📂 Extract the contents of `model.zip` into the **project root directory**, next to these folders:  
+1. 🔗 [**Download model.zip**](https://drive.google.com/file/d/1V5XaOJlhDxmUWe3MjGwjSmbGCvIOWBSg/view?usp=drive_link)
+2. 🔗 [**Download new model-11-11-25**](https://drive.google.com/drive/folders/17MS1AB-a_nNqwodIZ6tnKE2y9iNGWuNT?usp=sharing)  
+3. 📂 Extract the contents of `model.zip` into the **project root directory**, next to these folders:  
    - 📄 `config`
    - 📄 `detector`
    - 📄 `main`
