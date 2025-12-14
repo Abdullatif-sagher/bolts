@@ -1,3 +1,4 @@
+
 import gradio as gr
 import numpy as np
 import cv2
@@ -6,228 +7,234 @@ import time
 import pandas as pd
 import tempfile
 import shutil
+import plotly.express as px
+import plotly.graph_objects as go
+
 from detector import ModelManager
 import config
 
-model_manager = None
+# ==================== Global ====================
+_manager = None
 
-def get_model_manager():
-    global model_manager
-    if model_manager is None:
-        model_manager = ModelManager(config.MODEL_PATHS)
-    return model_manager
+def get_manager():
+    global _manager
+    if _manager is None:
+        _manager = ModelManager(config.MODEL_PATHS)
+    return _manager
 
-def parse_yolo_label(file_path, img_width, img_height):
+# ==================== Utils ====================
+def clean(obj):
+    if isinstance(obj, dict):
+        return {k: clean(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
+def parse_yolo_label(path, w, h):
     boxes = []
     try:
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                parts = line.strip().split()
-                if len(parts) >= 5:
-                    cls = int(parts[0])
-                    x_c = float(parts[1]) * img_width
-                    y_c = float(parts[2]) * img_height
-                    w = float(parts[3]) * img_width
-                    h = float(parts[4]) * img_height
-                    x1 = int(x_c - w/2)
-                    y1 = int(y_c - h/2)
-                    x2 = int(x_c + w/2)
-                    y2 = int(y_c + h/2)
-                    boxes.append({"class": cls, "box": [x1, y1, x2, y2]})
-    except Exception as e:
-        print(f"Error reading label {file_path}: {e}")
+        with open(path) as f:
+            for line in f:
+                _, x, y, bw, bh = map(float, line.split()[:5])
+                x1 = int((x - bw / 2) * w)
+                y1 = int((y - bh / 2) * h)
+                x2 = int((x + bw / 2) * w)
+                y2 = int((y + bh / 2) * h)
+                boxes.append([x1, y1, x2, y2])
+    except:
+        pass
     return boxes
 
-def compute_iou(box1, box2):
-    x1 = max(box1[0], box2[0])
-    y1 = max(box1[1], box2[1])
-    x2 = min(box1[2], box2[2])
-    y2 = min(box1[3], box2[3])
-    
-    inter_area = max(0, x2 - x1) * max(0, y2 - y1)
-    box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
-    box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
-    
-    union_area = box1_area + box2_area - inter_area
-    if union_area == 0: return 0
-    return inter_area / union_area
+# ==================== Core ====================
+def run(images, labels, models, kp_mode, conf, iou_th):
+    if not images:
+        return None, None, None, None, None, None, None
 
-def evaluate_frame(pred_boxes, gt_boxes, iou_thresh=0.5):
-    tp = 0
-    fp = 0
-    fn = 0
-    
-    matched_gt = set()
-    
-    for pred in pred_boxes:
-        best_iou = 0
-        best_gt_idx = -1
-        
-        for i, gt in enumerate(gt_boxes):
-            iou = compute_iou(pred['box'], gt['box'])
-            if iou > best_iou:
-                best_iou = iou
-                best_gt_idx = i
-        
-        if best_iou >= iou_thresh and best_gt_idx not in matched_gt:
-            tp += 1
-            matched_gt.add(best_gt_idx)
-        else:
-            fp += 1
-            
-    fn = len(gt_boxes) - len(matched_gt)
-    return tp, fp, fn
+    manager = get_manager()
+    out_dir = tempfile.mkdtemp()
 
-def analyze_batch_images(image_files, label_files, selected_models):
-    if not image_files:
-        return pd.DataFrame(), pd.DataFrame(), [], None
+    gallery = []
+    table_rows = []
+    image_level_rows = []
 
-    manager = get_model_manager()
-    table_data = []
-    gallery_images = []
-    
-   
-    output_dir = tempfile.mkdtemp()
-    
-    label_map = {}
-    if label_files:
-        for lf in label_files:
-            base = os.path.splitext(os.path.basename(lf.name))[0]
-            label_map[base] = lf.name
+    label_map = (
+        {os.path.splitext(f.name)[0]: f.name for f in labels}
+        if labels else {}
+    )
 
-    model_metrics = {m: {"tp": 0, "fp": 0, "fn": 0, "time": 0.0, "count": 0} for m in config.MODEL_PATHS}
+    for img_f in images:
+        img_name = os.path.splitext(os.path.basename(img_f.name))[0]
+        img = cv2.imread(img_f.name)
+        if img is None:
+            continue
 
-    for file_obj in image_files:
-        file_path = file_obj.name
-        file_name = os.path.basename(file_path)
-        base_name = os.path.splitext(file_name)[0]
-        
-        try:
-            original_img = cv2.imread(file_path)
-            if original_img is None: continue
-            
-            h, w = original_img.shape[:2]
-            rgb_img = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
-            
-            gt_boxes = []
-            if base_name in label_map:
-                gt_boxes = parse_yolo_label(label_map[base_name], w, h)
-            
-            for model in selected_models:
-                start_time = time.time()
-                results = manager.analyze_image(rgb_img, config.CONFIDENCE_THRESHOLD, [model])
-                end_time = time.time()
-                elapsed = end_time - start_time
-                
-                if not results: continue
-                res = results[0]
-                
-                tp, fp, fn = 0, 0, 0
-                has_gt = (base_name in label_map)
-                
-                if has_gt:
-                    tp, fp, fn = evaluate_frame(res['detections'], gt_boxes, config.IOU_THRESHOLD)
-                    model_metrics[model]["tp"] += tp
-                    model_metrics[model]["fp"] += fp
-                    model_metrics[model]["fn"] += fn
-                
-                model_metrics[model]["time"] += elapsed
-                model_metrics[model]["count"] += 1
-                
-                table_data.append([
-                    file_name,
-                    model,
-                    f"{elapsed:.3f}s",
-                    res["status_html"],
-                    f"TP:{tp} FP:{fp} FN:{fn}" if has_gt else "No Label"
-                ])
-                
-              
-                save_name = f"{base_name}_{model.replace(' ', '_')}_result.jpg"
-                save_path = os.path.join(output_dir, save_name)
-         
-                cv2.imwrite(save_path, cv2.cvtColor(res["image"], cv2.COLOR_RGB2BGR))
-                
-                label_str = f"{file_name} | {model} | {res['status_text']}"
-              
-                gallery_images.append((save_path, label_str))
-                
-        except Exception as e:
-            print(f"Failed {file_name}: {e}")
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        gt_exists = img_name in label_map
 
-    metrics_summary = []
-    for m, data in model_metrics.items():
-        if m not in selected_models: continue
-        tp, fp, fn = data["tp"], data["fp"], data["fn"]
-        total_time = data["time"]
-        
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-        
-        map_val = precision 
-        
-        metrics_summary.append([
-            m,
-            f"{total_time:.2f}s",
-            tp, fp, fn,
-            f"{precision:.2%}",
-            f"{recall:.2%}",
-            f"{map_val:.2%}"
-        ])
+        active_models = ["Keypoint R-CNN"] if kp_mode else models
 
-    df_main = pd.DataFrame(table_data, columns=["Image", "Model", "Time", "Status", "Conf Matrix (TP/FP/FN)"])
-    df_metrics = pd.DataFrame(metrics_summary, columns=["Model", "Total Time", "TP", "FP", "FN", "Precision", "Recall", "mAP@50 (Approx)"])
-    
- 
-    zip_path = shutil.make_archive(os.path.join(output_dir, "results"), 'zip', output_dir)
-    
-    return df_main, df_metrics, gallery_images, zip_path
+        for model_name in active_models:
+            t0 = time.time()
+            results = manager.analyze_image(rgb, conf, [model_name], kp_mode)
+            if not results:
+                continue
 
-custom_css = """
-.results-table { border-collapse: collapse; width: 100%; }
-.analyze-btn { background-color: #41B6A5; color: white; font-weight: bold; border-radius: 8px; padding: 10px 20px; }
+            r = results[0]
+            elapsed = time.time() - t0
+            detections = clean(r["detections"])
+            detected = len(detections) > 0
+            max_score = max([d["confidence"] for d in detections], default=0.0)
+
+            # ---------- Image-level confusion ----------
+            if gt_exists and detected:
+                TP, FP, FN, TN = 1, 0, 0, 0
+            elif gt_exists and not detected:
+                TP, FP, FN, TN = 0, 0, 1, 0
+            elif not gt_exists and detected:
+                TP, FP, FN, TN = 0, 1, 0, 0
+            else:
+                TP, FP, FN, TN = 0, 0, 0, 1
+
+            image_level_rows.append({
+                "Model": model_name,
+                "TP": TP,
+                "FP": FP,
+                "FN": FN,
+                "TN": TN,
+                "Score": max_score
+            })
+
+            out_path = os.path.join(out_dir, f"{img_name}_{model_name}.jpg")
+            cv2.imwrite(out_path, cv2.cvtColor(r["image"], cv2.COLOR_RGB2BGR))
+            gallery.append((out_path, f"{model_name} | {r['status_text']}"))
+
+            table_rows.append({
+                "Image": img_name,
+                "Model": model_name,
+                "Time (s)": round(elapsed, 3),
+                "Objects": len(detections),
+                "Status": r["status_text"]
+            })
+
+    df = pd.DataFrame(table_rows)
+    img_df = pd.DataFrame(image_level_rows)
+    zip_path = shutil.make_archive(os.path.join(out_dir, "results"), "zip", out_dir)
+
+
+    # ==================== Safety ====================
+    if img_df.empty or img_df[["TP", "FP", "FN"]].sum().sum() == 0:
+        warn = go.Figure()
+        warn.add_annotation(
+            text="⚠️ No valid Image-level data → Metrics disabled",
+            x=0.5, y=0.5, showarrow=False, font=dict(size=18)
+        )
+        return gallery, df, warn, warn, warn, warn, zip_path
+
+    # ==================== Image-level Metrics ====================
+    m = img_df.groupby("Model").sum()
+    m["Precision"] = m.TP / (m.TP + m.FP + 1e-6)
+    m["Recall"] = m.TP / (m.TP + m.FN + 1e-6)
+    m["F1"] = 2 * m.Precision * m.Recall / (m.Precision + m.Recall + 1e-6)
+
+    metrics_fig = px.bar(
+        m.reset_index(),
+        x="Model",
+        y=["Precision", "Recall", "F1"],
+        barmode="group",
+        title="Image-level Model Comparison"
+    )
+
+    # ==================== ROC Curve + AUC ====================
+    roc_fig = go.Figure()
+
+    for model in img_df.Model.unique():
+        sub = img_df[img_df.Model == model]
+        tprs, fprs = [], []
+
+        for th in np.linspace(0, 1, 25):
+            TP = ((sub.Score >= th) & (sub.TP == 1)).sum()
+            FP = ((sub.Score >= th) & (sub.FP == 1)).sum()
+            FN = ((sub.Score < th) & (sub.FN == 1)).sum()
+            TN = ((sub.Score < th) & (sub.TN == 1)).sum()
+
+            TPR = TP / (TP + FN + 1e-6)
+            FPR = FP / (FP + TN + 1e-6)
+
+            tprs.append(TPR)
+            fprs.append(FPR)
+
+        auc = np.trapz(sorted(tprs), sorted(fprs))
+        roc_fig.add_trace(
+            go.Scatter(
+                x=fprs,
+                y=tprs,
+                mode="lines+markers",
+                name=f"{model} (AUC={auc:.3f})"
+            )
+        )
+
+    roc_fig.update_layout(
+        title="ROC Curve (Image-level)",
+        xaxis_title="False Positive Rate",
+        yaxis_title="True Positive Rate"
+    )
+
+    perf_fig = px.bar(df, x="Model", y="Time (s)", title="Latency per Model")
+
+    return gallery, df, perf_fig, metrics_fig, roc_fig, zip_path
+
+# ==================== UI ====================
+theme = gr.themes.Soft(primary_hue="indigo")
+
+css = """
+#gallery_scroll {
+    max-height: 600px !important;
+    overflow-y: auto !important;
+}
 """
 
-theme = gr.themes.Base()
-theme.font = gr.themes.GoogleFont("Inter")
+with gr.Blocks(theme=theme, css=css, title="Bolt & Nut Detection Model Comparator") as demo:
+    gr.Markdown("# 🔩 Bolt & Nut Detection Model Comparator\n### Image-level Analytics")
 
-def create_interface():
-    with gr.Blocks(theme=theme, css=custom_css, title="Batch Comparator") as demo:
-        gr.Markdown("# 🛠Bolts Detection")
+    with gr.Row():
+        imgs = gr.File(file_types=["image"], file_count="multiple", label="Images")
+        lbls = gr.File(file_types=[".txt"], file_count="multiple", label="Labels (YOLO)")
 
-        with gr.Row():
-            with gr.Column(scale=1):
-                file_uploader = gr.File(file_count="multiple", file_types=["image"], label="1. Upload Images")
-                label_uploader = gr.File(file_count="multiple", file_types=[".txt"], label="2. Upload Labels (YOLO format) [Optional]")
-            
-            with gr.Column(scale=1):
-                model_selector = gr.CheckboxGroup(choices=list(config.MODEL_PATHS.keys()), value=list(config.MODEL_PATHS.keys()), label="3. Select Models")
-                analyze_button = gr.Button("Run Evaluation", variant="primary", elem_classes="analyze-btn")
-
-        gr.Markdown("### 📊 Model Performance Summary")
-        metrics_table = gr.Dataframe(headers=["Model", "Total Time", "TP", "FP", "FN", "Precision", "Recall", "mAP@50"], datatype=["str", "str", "number", "number", "number", "str", "str", "str"])
-
-        gr.Markdown("### 📝 Detailed Report per Image")
-        results_table = gr.Dataframe(
-            headers=["Image", "Model", "Time", "Status", "Conf Matrix (TP/FP/FN)"],
-            datatype=["str", "str", "str", "markdown", "str"],
-            interactive=False,
-            wrap=True
+    with gr.Row():
+        models = gr.CheckboxGroup(
+            choices=list(config.MODEL_PATHS.keys()),
+            value=["YOLOv8","YOLOv11","YOLOv12","faster rcnn"],
+            label="Models"
         )
+        kp = gr.Checkbox(label="Keypoint Mode")
+        conf = gr.Slider(0.1, 1.0, 0.6, 0.05, label="Confidence")
 
-        gr.Markdown("### 📥 Download Results")
-        zip_output = gr.File(label="Download All Results (ZIP)")
+    btn = gr.Button("🚀 Run Analysis", variant="primary")
 
-        gr.Markdown("### 🖼 Visual Gallery (Click download icon on image for JPG)")
-        image_gallery = gr.Gallery(label="Processed Images", show_label=True, columns=3, height="auto", object_fit="contain")
+    with gr.Tabs():
+        with gr.Tab("Gallery"):
+            gal = gr.Gallery(
+                columns=4,
+                height=600,
+                object_fit="contain",
+                allow_preview=True,
+                elem_id="gallery_scroll"
+            )
+        with gr.Tab("Analytics"):
+            perf_p = gr.Plot(label="Performance")
+            metrics_p = gr.Plot(label="Image-level Metrics")
+            roc_p = gr.Plot(label="ROC Curve + AUC")
+        with gr.Tab("Table"):
+            table = gr.Dataframe()
+            dl = gr.DownloadButton("📦 Download Results")
 
-        analyze_button.click(
-            fn=analyze_batch_images,
-            inputs=[file_uploader, label_uploader, model_selector],
-            outputs=[results_table, metrics_table, image_gallery, zip_output]
-        )
+    btn.click(
+        run,
+        inputs=[imgs, lbls, models, kp, conf, gr.State(0.5)],
+        outputs=[gal, table, perf_p, metrics_p, roc_p, dl]
+    )
 
-    return demo
-
-demo = create_interface()
+if __name__ == "__main__":
+    demo.launch()
