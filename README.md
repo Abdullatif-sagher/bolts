@@ -1,44 +1,107 @@
 <div align="center">
 
-# 🔩 Bolt & Nut Detection Model Comparator
-### A tool to benchmark YOLOv8, YOLOv9, YOLOv11, and Faster R-CNN models
+# 🔩 Bolt AI Pro  
+### Industrial Bolt & Nut Detection – Model Comparator & Analytics Dashboard
 
 </div>
 
+---
 
-
-> This project is a web application built with Python and Gradio to compare the performance of different AI models (YOLOv8, v9, v11, and Faster R-CNN) on the task of detecting bolts and nuts in images.
+> **Bolt AI Pro** is a professional industrial computer vision application built with **Python** and **Gradio** to analyze, compare, and benchmark multiple AI models for **bolt & nut inspection (Tight / Loose)** using a modern UI and advanced analytics.
 
 ---
 
-### ✨ Features
+## ✨ Key Features
 
--   **Multi-Model Comparison:** Analyze a single image with several models simultaneously and view the results side-by-side.
--   **Detailed Analysis:** For each model, the interface displays the annotated image, inference time, and a list of detected objects with their confidence scores.
--   **Modern Web UI:** A clean, modern, and interactive web interface built with Gradio.
--   **Organized Codebase:** The project is structured into specialized modules (`config`, `detector`, `gui`, `main`) for easy maintenance and development.
--   **Image Preprocessing:** Automatically applies a grayscale filter to input images to match the model's training conditions.
+### 🧠 Multi-Model AI Support
+- **YOLOv8**
+- **YOLOv11** *(ready – model path can be added later)*
+- **YOLOv12** *(ready – model path can be added later)*
+- **Faster R-CNN**
+- **Keypoint R-CNN**
+
+> Models with empty paths are **automatically skipped** (no crashes).  
+> Once a path is added, the model becomes active immediately.
 
 ---
-### ✨ Core New Features
 
--   **Batch Processing:** Analyze **multiple images** in a single run for all selected models.
--   **Metrics Dashboard:** Ability to upload **Label files (.txt)** to calculate crucial performance metrics like **True Positives (TP)**, **False Positives (FP)**, **Precision**, **Recall**, and **mAP** for model accuracy evaluation.
--   **Smart Tightness Logic:** Apply a strict geometric logic (Smart OR Logic) for **TIGHT** or **LOOSE** classification while maintaining tolerance for common occlusion or training issues, and correcting for angle-based errors (cheating).
--   **Detailed Report:** Comprehensive table output including image name, **processing time per model**, and Confusion Matrix status (TP/FP/FN).
--   **Enhanced Visual Guidance:**
-    *   Color-code **TIGHT** (Green) and **LOOSE** (Red) in both the table and on the images.
-    *   Draw **Keypoint Names** ($P1, H1$...) on the output images for clearer debugging.
-    *   Selectively draw only the keypoints/groups that passed the tightening logic check, hiding noisy or failing data.
--   **Guaranteed Download:** Download all processed results as a **ZIP file** to ensure correct saving of `.jpg` images.
-- 
+### 🎨 Modern Web UI (Gradio)
+- Clean, professional dashboard
+- Multi-tab layout:
+  - **Gallery**
+  - **Analytics**
+  - **Results Table**
+- Scroll-enabled image gallery
+- One-click ZIP download of results
+
 ---
+
+## 📊 Advanced Analytics (New)
+
+### ✅ Image-Level Metrics (Industrial-Grade)
+Designed for real inspection logic instead of pure IoU:
+
+- **Precision**
+- **Recall**
+- **F1-Score**
+
+Evaluation is done at the **image decision level**:
+> *Is the bolt detected correctly or not?*
+
+This approach is far more suitable for industrial QA systems.
+
+---
+
+### 📈 ROC Curve + AUC
+- Full **ROC Curve** per model
+- Automatic **AUC calculation**
+- Threshold-independent comparison
+- Ideal for:
+  - Model benchmarking
+  - Threshold tuning
+  - Deployment decisions
+
+---
+
+### ⏱ Performance Metrics
+- Inference time per model
+- Speed comparison across models
+
+---
+
+## 🖼️ UI Overview
+
+### 🖼 Gallery Tab
+- Displays all processed images
+- Shows model name + classification result
+- Supports scrolling for large batches
+
+### 📊 Analytics Tab
+- Performance (Latency)
+- Image-level Metrics (Precision / Recall / F1)
+- ROC Curve with AUC
+
+### 📄 Table Tab
+- Per-image results
+- Processing time
+- Detection summary
+
+---
+
+## 📦 Export & Reports
+- Download all outputs as a **ZIP file**:
+  - Annotated images
+  - Result tables
+- Designed for easy reporting and auditing
+
+---
+
 
 ### 📥 Download the Model
 
 To run the project, you need to download and extract the pre-trained model.
 
-1. 🔗 [**Download model.zip**](https://drive.google.com/file/d/1V5XaOJlhDxmUWe3MjGwjSmbGCvIOWBSg/view?usp=drive_link)  
+1. 🔗 [**Download model.zip**](https://drive.google.com/drive/folders/1fm1HWQm9Tp-cAskEXOI7BVbQtGtMBFTT?usp=drive_link)  
 2. 📂 Extract the contents of `model.zip` into the **project root directory**, next to these folders:  
    - 📄 `config`
    - 📄 `detector`
