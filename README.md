@@ -2,7 +2,7 @@
 
 # 🔩 Bolt AI Pro  
 ### Industrial Bolt & Nut Detection – Model Comparator & Analytics Dashboard
-
+### version 12-12-25
 </div>
 
 ---
@@ -10,6 +10,7 @@
 > **Bolt AI Pro** is a professional industrial computer vision application built with **Python** and **Gradio** to analyze, compare, and benchmark multiple AI models for **bolt & nut inspection (Tight / Loose)** using a modern UI and advanced analytics.
 
 ---
+> **Note** Rename model like **yolo8-l-best.pt** > **1-** name of model , **2-** TYPE: L  , **3-** and is Best model
 
 ## ✨ Key Features
 
@@ -101,7 +102,7 @@ This approach is far more suitable for industrial QA systems.
 
 To run the project, you need to download and extract the pre-trained model.
 
-1. 🔗 [**Download model.zip**](https://drive.google.com/drive/folders/1fm1HWQm9Tp-cAskEXOI7BVbQtGtMBFTT?usp=drive_link)  
+1. 🔗 [**Download model version 12-12-25**](https://drive.google.com/drive/folders/1fm1HWQm9Tp-cAskEXOI7BVbQtGtMBFTT?usp=drive_link)  
 2. 📂 Extract the contents of `model.zip` into the **project root directory**, next to these folders:  
    - 📄 `config`
    - 📄 `detector`
