@@ -1,5 +1,3 @@
-
-
 import time
 import cv2
 import torch
@@ -25,12 +23,25 @@ CROP_PADDING = 100
 class ModelManager:
     def __init__(self, model_configs, device=None):
         self.models = {}
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[ModelManager] device = {self.device}")
+        
+        # 1. تحديد الجهاز (Auto Detect GPU)
+        if device:
+            self.device = device
+        else:
+            if torch.cuda.is_available():
+                self.device = "cuda"
+                # طباعة معلومات كرت الشاشة للتأكد
+                gpu_name = torch.cuda.get_device_name(0)
+                print(f"\n[ModelManager] ✅ GPU DETECTED: {gpu_name}")
+                print(f"[ModelManager] Mode: CUDA (Fast)\n")
+            else:
+                self.device = "cpu"
+                print(f"\n[ModelManager] ⚠️ WARNING: GPU NOT DETECTED! Running on CPU (Slow).")
+                print(f"[ModelManager] Ensure you have NVIDIA Drivers & PyTorch CUDA installed.\n")
 
         # per-model class id -> class name mapping (override if needed)
-        # Example: {"faster rcnn": {1: "bolt-loose", 2: "bolt-tight"}}
         self.model_class_map = {}
+        
         for name, path in model_configs.items():
 
             # ===== SKIP MODELS WITH EMPTY PATH =====
@@ -54,7 +65,12 @@ class ModelManager:
                 # -------- Try YOLO (Ultralytics) --------
                 try:
                     print(f"[Trying YOLO load] {name}  path={path}")
+                    # تحميل الموديل
                     y = YOLO(path)
+                    # محاولة نقله للـ GPU فوراً (اختياري مع Ultralytics لكن مفضل)
+                    if self.device == "cuda":
+                        y.to("cuda")
+                    
                     self.models[name] = ("yolo", y)
                     print(f"[Loaded YOLO] {name} via Ultralytics in {time.time()-start:.2f}s")
                     continue
@@ -101,7 +117,7 @@ class ModelManager:
             # assume the first keypoint model
             kp_name = kp_names[0]
             model_type, model = self.models[kp_name]
-            print(f"[analyze_image] Running Keypoint model: {kp_name}")
+            print(f"[analyze_image] Running Keypoint model: {kp_name} on {self.device}")
             try:
                 dets = self._predict_keypoint_safe(model, original_bgr, conf_threshold)
                 annotated, parsed = self._draw_keypoint_results(original_bgr.copy(), dets)
@@ -136,7 +152,7 @@ class ModelManager:
                 else:
                     dets = self._predict_box_model_safe(mobj, original_bgr, conf_threshold)
                 elapsed = time.time() - start
-                print(f"[predict] model={model_name} type={mtype} detections={len(dets)} time={elapsed:.3f}s")
+                print(f"[predict] model={model_name} type={mtype} detections={len(dets)} time={elapsed:.3f}s device={self.device}")
 
                 annotated, parsed = self._draw_box_results(original_bgr.copy(), dets)
                 composite = self._info_image_box(annotated, parsed, model_name)
@@ -234,7 +250,8 @@ class ModelManager:
     # ---------------------------
     def _predict_yolo_safe(self, model, image_bgr, conf):
         try:
-            res = model.predict(image_bgr, conf=conf, verbose=False)[0]
+            # FORCE DEVICE HERE: نمرر الجهاز المحدد (cuda) لإجبار الموديل على استخدامه
+            res = model.predict(image_bgr, conf=conf, verbose=False, device=self.device)[0]
         except Exception as e:
             print(f"[_predict_yolo_safe] YOLO predict failed: {e}")
             traceback.print_exc()
@@ -260,6 +277,7 @@ class ModelManager:
         return dets
 
     def _predict_box_model_safe(self, model, image_bgr, conf):
+        # Move inputs to DEVICE explicitly
         img_t = F.to_tensor(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)).unsqueeze(0).to(self.device)
         with torch.no_grad():
             out = model(img_t)
@@ -302,6 +320,7 @@ class ModelManager:
         return dets
 
     def _predict_keypoint_safe(self, model, image_bgr, conf):
+        # Move inputs to DEVICE explicitly
         img_t = F.to_tensor(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)).unsqueeze(0).to(self.device)
         with torch.no_grad():
             out = model(img_t)
