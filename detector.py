@@ -24,13 +24,13 @@ class ModelManager:
     def __init__(self, model_configs, device=None):
         self.models = {}
         
-        # 1. تحديد الجهاز (Auto Detect GPU)
+     
         if device:
             self.device = device
         else:
             if torch.cuda.is_available():
                 self.device = "cuda"
-                # طباعة معلومات كرت الشاشة للتأكد
+               
                 gpu_name = torch.cuda.get_device_name(0)
                 print(f"\n[ModelManager] ✅ GPU DETECTED: {gpu_name}")
                 print(f"[ModelManager] Mode: CUDA (Fast)\n")
@@ -39,7 +39,7 @@ class ModelManager:
                 print(f"\n[ModelManager] ⚠️ WARNING: GPU NOT DETECTED! Running on CPU (Slow).")
                 print(f"[ModelManager] Ensure you have NVIDIA Drivers & PyTorch CUDA installed.\n")
 
-        # per-model class id -> class name mapping (override if needed)
+     
         self.model_class_map = {}
         
         for name, path in model_configs.items():
@@ -65,9 +65,9 @@ class ModelManager:
                 # -------- Try YOLO (Ultralytics) --------
                 try:
                     print(f"[Trying YOLO load] {name}  path={path}")
-                    # تحميل الموديل
+                  
                     y = YOLO(path)
-                    # محاولة نقله للـ GPU فوراً (اختياري مع Ultralytics لكن مفضل)
+                    
                     if self.device == "cuda":
                         y.to("cuda")
                     

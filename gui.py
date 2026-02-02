@@ -337,8 +337,8 @@ def run(images, labels, models, kp_mode, conf_th, iou_th):
 theme = gr.themes.Soft(primary_hue="indigo")
 css = "#gallery_scroll { max-height: 600px !important; overflow-y: auto !important; }"
 
-with gr.Blocks(theme=theme, css=css, title="Bolt Benchmark Ultimate") as demo:
-    gr.Markdown("# 🔩 Bolt Benchmark Ultimate\n### Full Reporting & Model Comparison")
+with gr.Blocks(theme=theme, css=css, title=" Bolt & Nut Detection Model Comparator") as demo:
+    gr.Markdown("# 🔩  Bolt & Nut Detection Model Comparator\n### Full Reporting & Model Comparison")
     
     with gr.Row():
         imgs = gr.File(label="Images (jpg/png)", file_count="multiple", file_types=["image"])
